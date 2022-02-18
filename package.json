@@ -1,0 +1,21 @@
+{
+  "name": "planning-poker",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sayan751/planning-poker.git"
+  },
+  "keywords": [],
+  "author": "Sayan751",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Sayan751/planning-poker/issues"
+  },
+  "homepage": "https://github.com/Sayan751/planning-poker#readme",
+  "workspaces": [
+    "./server",
+    "./client"
+  ]
+}

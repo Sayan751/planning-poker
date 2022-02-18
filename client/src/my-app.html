@@ -1,0 +1,6 @@
+<div class="message">${message}</div>
+
+<button click.delegate="initiateSse()">Initiate SSE</button>
+<button click.delegate="broadcast()">Broadcast</button>
+
+<div repeat.for="event of eventLog">${event}</div>
