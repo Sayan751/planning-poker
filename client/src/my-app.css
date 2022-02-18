@@ -1,0 +1,15 @@
+:root {
+    --row-gap: 0.25rem;
+}
+dialog[open],
+dialog[open]>form {
+    display: flex;
+    flex-direction: column;
+    row-gap: var(--row-gap);
+}
+
+dialog[open]>form>footer,
+dialog[open]>footer {
+    padding-top: calc(var(--row-gap) * 4);
+    align-self: flex-end;
+}

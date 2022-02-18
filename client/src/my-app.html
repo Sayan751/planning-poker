@@ -1,6 +1,30 @@
-<div class="message">${message}</div>
+<template promise.bind="joinSessionPromise">
+    <button then if.bind="!session" click.delegate="showSessionDialog()"> Start new session </button>
+</template>
 
-<button click.delegate="initiateSse()">Initiate SSE</button>
-<button click.delegate="broadcast()">Broadcast</button>
+<dialog ref="sessionDialog">
+    <label for="sessionName">Enter session name</label>
+    <input name="sessionName" value.bind="sessionName">
+    <footer>
+        <button click.delegate="handleSessionDialogClose(null)">Cancel</button>
+        <button click.delegate="handleSessionDialogClose(sessionName)">Start</button>
+    </footer>
+</dialog>
 
-<div repeat.for="event of eventLog">${event}</div>
+<dialog ref="playerDialog">
+    <label for="sessionName">Enter your name</label>
+    <input name="sessionName" value.bind="playerName">
+    <footer>
+        <button click.delegate="closePlayerDialog(null)">Cancel</button>
+        <button click.delegate="closePlayerDialog(playerName)">Enter</button>
+    </footer>
+</dialog>
+
+<dialog ref="errorDialog">
+    <form method="dialog">
+        ${error}
+        <footer>
+            <button type="submit">Close</button>
+        </footer>
+    </form>
+</dialog>

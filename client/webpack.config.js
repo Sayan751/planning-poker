@@ -3,16 +3,23 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 const cssLoader = 'css-loader';
 
-const postcssLoader = {
+const postcssLoader ='postcss-loader'/*  {
   loader: 'postcss-loader',
   options: {
-    plugins: () => [
-      require('autoprefixer')()
-    ]
+    postcssOptions: {
+      plugins: [
+        [
+          "autoprefixer",
+          {
+            // Options
+          },
+        ],
+      ],
+    },
   }
-};
+} */;
 
-module.exports = function(env, { analyze }) {
+module.exports = function (env, { analyze }) {
   const production = env === 'production' || process.env.NODE_ENV === 'production';
   return {
     mode: production ? 'production' : 'development',
@@ -24,13 +31,15 @@ module.exports = function(env, { analyze }) {
     },
     resolve: {
       extensions: ['.ts', '.js'],
-      modules: [path.resolve(__dirname, 'src'), 'node_modules']
+      modules: [path.resolve(__dirname, 'src'), 'node_modules'],
+      fallback: {
+        'html-entities': require.resolve('html-entities/'),
+        'events': require.resolve('events/'),
+      },
     },
     devServer: {
       historyApiFallback: true,
-      open: !process.env.CI,
       port: 9000,
-      lazy: false
     },
     module: {
       rules: [
@@ -38,8 +47,9 @@ module.exports = function(env, { analyze }) {
         { test: /\.woff2(\?v=[0-9]\.[0-9]\.[0-9])?$/i, loader: 'url-loader', options: { limit: 10000, mimetype: 'application/font-woff2' } },
         { test: /\.woff(\?v=[0-9]\.[0-9]\.[0-9])?$/i, loader: 'url-loader', options: { limit: 10000, mimetype: 'application/font-woff' } },
         { test: /\.(ttf|eot|svg|otf)(\?v=[0-9]\.[0-9]\.[0-9])?$/i, loader: 'file-loader' },
-        { test: /\.css$/i, use: [ 'style-loader', cssLoader, postcssLoader ] },
+        { test: /\.css$/i, use: ['style-loader', cssLoader, postcssLoader] },
         { test: /\.ts$/i, use: ['ts-loader'], exclude: /node_modules/ },
+        { test: /\.html$/i, loader: 'html-loader' },
       ]
     },
     plugins: [
