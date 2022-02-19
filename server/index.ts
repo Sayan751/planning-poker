@@ -35,6 +35,8 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
     res.setHeader('Access-Control-Allow-Methods', '*');
     res.setHeader('Access-Control-Allow-Headers', '*');
 
+    if (req.method?.toLowerCase() === 'options') { res.end(); return; }
+
     log(req.url);
     const url = parse(req.url!);
 
@@ -67,7 +69,7 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
             res.end(JSON.stringify({
                 id: session.id,
                 name: session.name,
-                players: session.players.map(p => ({ id: p.id, name: p.name }))
+                players: session.players.map(p => p.toJSON())
             }));
             break;
         }
@@ -84,7 +86,6 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
                 player = new Player(playerId, query.player_name as string, res);
                 players.push(player);
             }
-            // req.socket.setNoDelay(true);
             res.connection.setTimeout(0);
             res.statusCode = 200;
             res.setHeader('Content-Type', 'text/event-stream');
@@ -92,22 +93,67 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
             res.setHeader('Connection', 'keep-alive');
             res.write('');
 
-            req.on("close", () => {
+            const broadcastData = JSON.stringify(player);
+            for (const $player of players) {
+                if ($player === player) continue;
+                $player.res.write(`event: player-joined\ndata: ${broadcastData}\n\n`);
+            }
+
+            res.socket.on("close", () => {
                 log(`closing connection for playerId: ${playerId}`);
                 const index = players.findIndex((c) => c.id === playerId);
                 if (index > -1) {
-                    players.splice(index, 1);
+                    const broadcastData = JSON.stringify(players.splice(index, 1)[0]);
+                    for (const player of players) {
+                        player.res.write(`event: player-left\ndata: ${broadcastData}\n\n`);
+                    }
                 }
+                res.end();
             });
             log(`Players# ${players.length}`);
             break;
         }
-        // case '/broadcast':
-        //     for (const client of clients) {
-        //         client.res.write(`event: awesome-possum\nclientId: ${client.id}\ndata: ${data}\n\n`);
-        //     }
-        //     res.end();
-        //     break;
+        case '/put-estimate': {
+            if (!isMethod(req, res, 'put')) break;
+            const $request: PutEstimationContract = JSON.parse(data);
+            const session = findSession($request.sessionId, res);
+            if (session === null) break;
+            const players = session.players;
+            const player = players.find(p => p.id === $request.playerId);
+            if (!player) {
+                res.writeHead(404, 'player not found');
+                res.end();
+                break;
+            }
+            player.estimate = $request.estimate;
+            res.end();
+            const broadcastData = JSON.stringify(player);
+            for (const $player of players) {
+                if ($player === player) continue;
+                $player.res.write(`event: set-estimate\ndata: ${broadcastData}\n\n`);
+            }
+            break;
+        }
+        case '/reveal': {
+            if (!isMethod(req, res, 'post')) break;
+            res.end();
+            const session = findSession(query.id as string, res);
+            if (session === null) break;
+            for (const player of session.players) {
+                player.res.write(`event: reveal\ndata: null\n\n`);
+            }
+            break;
+        }
+        case '/clear': {
+            if (!isMethod(req, res, 'delete')) break;
+            res.end();
+            const session = findSession(query.id as string, res);
+            if (session === null) break;
+            for (const player of session.players) {
+                player.res.write(`event: clear\ndata: null\n\n`);
+            }
+            break;
+        }
         default:
             res.end(`Hello from node http-server, url: ${req.url}, data: ${data}`);
             break;
@@ -128,7 +174,7 @@ function findSession(id: string, res: ServerResponse): Session | null {
     return null;
 }
 
-function isMethod(req: IncomingMessage, res: ServerResponse, expected: 'post' | 'get') {
+function isMethod(req: IncomingMessage, res: ServerResponse, expected: 'post' | 'get' | 'put' | 'delete') {
     if (req.method?.toLowerCase() === expected) return true;
     res.writeHead(405);
     res.end();
@@ -147,6 +193,16 @@ class Player {
         public readonly id: string,
         public readonly name: string,
         public res: ServerResponse,
-        public estimate?: number,
+        public estimate: number | null = null,
     ) { }
+
+    public toJSON() {
+        return { id: this.id, name: this.name, estimate: this.estimate };
+    }
+}
+
+interface PutEstimationContract {
+    readonly sessionId: string;
+    readonly playerId: string;
+    readonly estimate: number;
 }

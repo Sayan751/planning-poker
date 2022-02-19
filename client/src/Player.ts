@@ -4,5 +4,6 @@ export class Player {
   public constructor(
     public readonly name: string,
     public readonly id: string = v4(),
+    public estimate: number | null = null,
   ) { }
 }

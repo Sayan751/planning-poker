@@ -1,3 +1,4 @@
+import { bound } from '@aurelia/kernel';
 import { customElement, IPlatform, observable } from '@aurelia/runtime-html';
 import template from './my-app.html';
 import { Player } from './Player';
@@ -18,6 +19,8 @@ export class MyApp {
   private readonly errorDialog: $HTMLDialogElement;
   private error: string;
   private readonly joinSessionPromise: Promise<void> = Promise.resolve();
+  private reveal: boolean = false;
+  private deck: ReadonlyArray<number> = Object.freeze([0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100]);
 
   public constructor(
     @IPlatform private readonly platform: IPlatform,
@@ -30,7 +33,14 @@ export class MyApp {
   }
 
   private showSessionDialog() {
+    this.cleanup();
     this.sessionDialog.showModal();
+  }
+
+  private cleanup() {
+    this.session = null;
+    this.source?.close();
+    this.player = null;
   }
 
   private async handleSessionDialogClose(name: string | null) {
@@ -69,7 +79,9 @@ export class MyApp {
       return;
     }
     const data: Partial<Session> = await response.json();
-    this.session = new Session(data.name, data.id);
+    const session = this.session = new Session(data.name, data.id);
+    session.addPlayers(data.players);
+    console.log('joined', session);
     this.startPlayerInitialization();
   }
 
@@ -97,32 +109,70 @@ export class MyApp {
 
   private playerChanged(player: Player, old: Player | null): void {
     if (!player || old !== null) return;
+    this.session.addPlayer(player);
     const query = new URLSearchParams({ session_id: this.session.id, player_id: player.id, player_name: player.name });
     const source = this.source = new EventSource(`${endpoint}/join-player?${query}`);
     source.addEventListener('open', () => { console.log('player is now connected'); });
-    //TODO: added listeners for SSEs
+    source.addEventListener('player-joined', this.playerJoined);
+    source.addEventListener('player-left', this.playerLeft);
+    source.addEventListener('set-estimate', this.setEstimate);
+    source.addEventListener('reveal', () => this.reveal = true); // TODO: prepare vis
+    source.addEventListener('clear', () => {
+      this.session.clearAllEstimates();
+      this.reveal = false;
+    });
+  }
+
+  @bound
+  private playerJoined(event: MessageEvent) {
+    this.session.addPlayer(JSON.parse(event.data));
+  }
+
+  @bound
+  private playerLeft(event: MessageEvent) {
+    this.session.removePlayer(JSON.parse(event.data));
+  }
+
+  @bound
+  private setEstimate(event: MessageEvent) {
+    console.log('setEstimate');
+    this.session.setEstimate(JSON.parse(event.data));
+  }
+
+  private async toggleEstimate(estimate: number) {
+    const player = this.player;
+    if (player.estimate === estimate) {
+      player.estimate = null;
+    } else {
+      player.estimate = estimate;
+    }
+    // TODO: handle non-ok response
+    await fetch(`${endpoint}/put-estimate`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        sessionId: this.session.id,
+        playerId: player.id,
+        estimate: player.estimate,
+      } as PutEstimationContract)
+    });
+  }
+
+  private async requestReveal() {
+    await fetch(`${endpoint}/reveal?${new URLSearchParams({ id: this.session.id })}`, { method: 'POST' });
+  }
+
+  private async requestClear() {
+    await fetch(`${endpoint}/clear?${new URLSearchParams({ id: this.session.id })}`, { method: 'DELETE' });
   }
 
   private showError(error: string) {
     this.error = error;
     this.errorDialog.showModal();
   }
+}
 
-  // public initiateSse() {
-  //   if (!this.source) {
-  //     const source = this.source = new EventSource(`http://localhost:3000/sse?clientId=${Math.random()}`);
-  //     source.addEventListener("message", (event) => {
-  //       console.log("message rcvd", event);
-  //       this.eventLog.push(event.data);
-  //     });
-  //     source.addEventListener("awesome-possum", (event: MessageEvent) => {
-  //       console.log("awesome-possum rcvd", event);
-  //       this.eventLog.push(event.data);
-  //     });
-  //     source.addEventListener("open", (event) => {
-  //       console.log("connection opened");
-  //       console.log(event);
-  //     });
-  //   }
-  // }
+interface PutEstimationContract {
+  readonly sessionId: string;
+  readonly playerId: string;
+  readonly estimate: number;
 }
