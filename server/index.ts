@@ -86,7 +86,7 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
                 player = new Player(playerId, query.player_name as string, res);
                 players.push(player);
             }
-            res.connection.setTimeout(0);
+            res.socket?.setTimeout(0);
             res.statusCode = 200;
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
@@ -99,7 +99,7 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
                 $player.res.write(`event: player-joined\ndata: ${broadcastData}\n\n`);
             }
 
-            res.socket.on("close", () => {
+            res.socket?.on("close", () => {
                 log(`closing connection for playerId: ${playerId}`);
                 const index = players.findIndex((c) => c.id === playerId);
                 if (index > -1) {

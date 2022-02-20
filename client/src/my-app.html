@@ -25,21 +25,25 @@
         is-selected.class="value === player.estimate"></card>
 </div>
 <dialog ref="sessionDialog">
-    <label for="sessionName">Enter session name</label>
-    <input name="sessionName" value.bind="sessionName">
-    <footer>
-        <button click.delegate="handleSessionDialogClose(null)">Cancel</button>
-        <button click.delegate="handleSessionDialogClose(sessionName)">Start</button>
-    </footer>
+    <form method="dialog" submit.trigger="handleSessionDialogClose(sessionName)">
+        <label for="sessionName">Enter session name</label>
+        <input name="sessionName" value.bind="sessionName">
+        <footer>
+            <button type="submit">Submit</button>
+            <button click.delegate="handleSessionDialogClose(null)">Cancel</button>
+        </footer>
+    </form>
 </dialog>
 
 <dialog ref="playerDialog">
-    <label for="sessionName">Enter your name</label>
-    <input name="sessionName" value.bind="playerName">
-    <footer>
-        <button click.delegate="closePlayerDialog(null)">Cancel</button>
-        <button click.delegate="closePlayerDialog(playerName)">Enter</button>
-    </footer>
+    <form method="dialog" submit.trigger="closePlayerDialog(playerName)">
+        <label for="playerName">Enter your name</label>
+        <input name="playerName" value.bind="playerName">
+        <footer>
+            <button type="submit">Enter</button>
+            <button click.delegate="closePlayerDialog(null)">Cancel</button>
+        </footer>
+    </form>
 </dialog>
 
 <dialog ref="errorDialog">
