@@ -1,19 +1,26 @@
 <let num-players.bind="session.players.length" num-estimates.bind="session.estimateCount"></let>
 
-<menu promise.bind="joinSessionPromise">
-    <template then>
+<template promise.bind="joinSessionPromise">
+    <div class="info">
+        <span class="session">${session.name}</span>
+        <span class="player">${player.name}</span>
+    </div>
+    <menu then>
         <button click.delegate="showSessionDialog()"> Start new session </button>
         <button if.bind="numPlayers" click.delegate="requestReveal()" disabled.bind="numEstimates !== numPlayers">Reveal
             cards ${numEstimates}/${numPlayers}</button>
         <button if.bind="numPlayers" click.delegate="requestClear()" disabled.bind="!reveal">Clear</button>
-    </template>
-</menu>
+    </menu>
+</template>
 
 <div class="players">
     <player repeat.for="player of session.players" player.bind reveal.bind></player>
 </div>
 <div class="gutter"></div>
-<div class="deck">
+<div ref="result" show.bind="reveal" class="result">
+    <span id="meanContainer">Average: ${meanEstimate}</span>
+</div>
+<div show.bind="!reveal" class="deck">
     <card repeat.for="value of deck" value.bind click.delegate="toggleEstimate(value)"
         is-selected.class="value === player.estimate"></card>
 </div>

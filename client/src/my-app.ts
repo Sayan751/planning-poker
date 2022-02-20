@@ -1,11 +1,18 @@
 import { bound } from '@aurelia/kernel';
 import { customElement, IPlatform, observable } from '@aurelia/runtime-html';
+import * as d3 from 'd3';
+import { Margin } from './Margin';
 import template from './my-app.html';
 import { Player } from './Player';
 import { Session } from './Session';
 
 const playerStorageKey = 'planning-poker:player';
 const endpoint = 'http://localhost:3000';
+
+const margin = new Margin(20, 30, 50, 10);
+const width = 300;
+const height = 200;
+
 type $HTMLDialogElement = HTMLDialogElement & { showModal(): void; close(): void; };
 
 @customElement({ name: 'my-app', template })
@@ -17,10 +24,13 @@ export class MyApp {
   private readonly sessionDialog: $HTMLDialogElement;
   private readonly playerDialog: $HTMLDialogElement;
   private readonly errorDialog: $HTMLDialogElement;
+  private readonly result: HTMLDivElement;
   private error: string;
   private readonly joinSessionPromise: Promise<void> = Promise.resolve();
   private reveal: boolean = false;
   private deck: ReadonlyArray<number> = Object.freeze([0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100]);
+  private svg!: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+  private meanEstimate: number | null = null;
 
   public constructor(
     @IPlatform private readonly platform: IPlatform,
@@ -81,7 +91,6 @@ export class MyApp {
     const data: Partial<Session> = await response.json();
     const session = this.session = new Session(data.name, data.id);
     session.addPlayers(data.players);
-    console.log('joined', session);
     this.startPlayerInitialization();
   }
 
@@ -112,15 +121,12 @@ export class MyApp {
     this.session.addPlayer(player);
     const query = new URLSearchParams({ session_id: this.session.id, player_id: player.id, player_name: player.name });
     const source = this.source = new EventSource(`${endpoint}/join-player?${query}`);
-    source.addEventListener('open', () => { console.log('player is now connected'); });
+    source.addEventListener('open', () => { console.log('You are now connected'); });
     source.addEventListener('player-joined', this.playerJoined);
     source.addEventListener('player-left', this.playerLeft);
     source.addEventListener('set-estimate', this.setEstimate);
-    source.addEventListener('reveal', () => this.reveal = true); // TODO: prepare vis
-    source.addEventListener('clear', () => {
-      this.session.clearAllEstimates();
-      this.reveal = false;
-    });
+    source.addEventListener('reveal', this.revealCards);
+    source.addEventListener('clear', this.clear);
   }
 
   @bound
@@ -137,6 +143,78 @@ export class MyApp {
   private setEstimate(event: MessageEvent) {
     console.log('setEstimate');
     this.session.setEstimate(JSON.parse(event.data));
+  }
+
+  @bound
+  private revealCards() {
+    this.reveal = true;
+
+    //#region drawing
+    const dataset = this.session.players.reduce(
+      (acc, player) => {
+        const estimate = player.estimate;
+        let item = acc.find(i => i.estimate === estimate);
+        if (item == null) {
+          item = new EstimationFrequency(estimate, 1);
+          acc.push(item);
+        } else {
+          item.frequency++;
+        }
+        return acc;
+      },
+      [] as EstimationFrequency[]
+    );
+    dataset.sort((a, b) => a.estimate - b.estimate);
+
+    // this part needs more love to handle it the d3 way
+    const svg = this.svg = d3.select(this.result)
+      .insert('svg', '#meanContainer')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('height', height)
+      .attr('width', width);
+    const xAxis = svg.append("g")
+      .classed('x-axis', true)
+      .attr('transform', `translate(0, ${height - margin.bottom})`);
+    const xScale = d3.scaleBand()
+      .domain(dataset.map((d) => d.estimate.toString()))
+      .rangeRound([margin.left, width - margin.right])
+      .paddingInner(0.5);
+    const yScale = d3.scaleLinear()
+      .domain([d3.max(dataset, (d) => d.frequency), 0] as [number, number])
+      .range([height - margin.bottom, margin.top]);
+
+    const rects = this.svg.selectAll('rect').data(dataset, (x: EstimationFrequency) => x.estimate);
+    rects.exit().remove();
+    rects.enter()
+      .append('rect')
+      .attr('x', (d) => xScale(d.estimate.toString())!)
+      .attr("y", (d) => height - yScale(d.frequency) - margin.bottom)
+      .attr("width", xScale.bandwidth())
+      .attr("height", (d) => yScale(d.frequency))
+      .merge(rects as any);
+    xAxis.call(d3.axisBottom(xScale));
+    xAxis.select('.domain').attr('opacity', '0');
+    const ticks = xAxis.selectAll('g.tick');
+    ticks.selectAll('line').attr('opacity', '0');
+    ticks.selectAll('text').attr('font-size', '150%');
+    ticks.append('text')
+      .text(function (_, i) {
+        const freq = dataset[i].frequency;
+        return `${freq.toString()} vote${freq === 1 ? '' : 's'}`;
+      })
+      .attr('fill', 'currentColor')
+      .attr('y', '35');
+    //#endregion
+
+    this.meanEstimate = Math.ceil(d3.mean(this.session.players, x => x.estimate) * 100) / 100;
+  }
+
+  @bound
+  private clear() {
+    this.session.clearAllEstimates();
+    this.reveal = false;
+    this.meanEstimate = null;
+    this.svg.remove();
   }
 
   private async toggleEstimate(estimate: number) {
@@ -175,4 +253,11 @@ interface PutEstimationContract {
   readonly sessionId: string;
   readonly playerId: string;
   readonly estimate: number;
+}
+
+class EstimationFrequency {
+  public constructor(
+    public readonly estimate: number,
+    public frequency: number,
+  ) { }
 }
