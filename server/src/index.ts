@@ -161,9 +161,9 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
 }
 
 const server = createServer(requestHandler);
-server.listen(3000, () => {
+server.listen(process.env.PORT ?? 3000, () => {
     const address = server.address() as AddressInfo;
-    log(`server is running on http://localhost:${address.port}`)
+    log(`server is running on http://${address.address ?? 'localhost'}:${address.port}`)
 });
 
 function findSession(id: string, res: ServerResponse): Session | null {

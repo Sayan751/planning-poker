@@ -7,7 +7,7 @@ import { Player } from './Player';
 import { Session } from './Session';
 
 const playerStorageKey = 'planning-poker:player';
-const endpoint = 'http://localhost:3000';
+const endpoint = 'https://immense-reaches-14965.herokuapp.com'; // 'http://localhost:3000';
 
 const margin = new Margin(20, 30, 50, 10);
 const width = 300;
