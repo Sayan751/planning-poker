@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "prebuild": "rimraf dist",
+    "build": "tsc",
     "start": "ts-node index.ts"
   },
   "keywords": [],
