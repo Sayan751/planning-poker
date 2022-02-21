@@ -3,7 +3,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 const cssLoader = 'css-loader';
 
-const postcssLoader ='postcss-loader'/*  {
+const postcssLoader = 'postcss-loader'/*  {
   loader: 'postcss-loader',
   options: {
     postcssOptions: {
@@ -19,11 +19,10 @@ const postcssLoader ='postcss-loader'/*  {
   }
 } */;
 
-module.exports = function (env, { analyze }) {
-  const production = env === 'production' || process.env.NODE_ENV === 'production';
+module.exports = function ({ production }) {
   return {
     mode: production ? 'production' : 'development',
-    devtool: production ? 'source-maps' : 'inline-source-map',
+    devtool: production ? undefined : 'inline-source-map',
     entry: './src/main.ts',
     output: {
       path: path.resolve(__dirname, 'dist'),
