@@ -1,5 +1,6 @@
 import { bound } from '@aurelia/kernel';
-import { customElement, IPlatform, observable } from '@aurelia/runtime-html';
+import { observable } from '@aurelia/runtime';
+import { customElement, IPlatform } from '@aurelia/runtime-html';
 import * as d3 from 'd3';
 import { Margin } from './Margin';
 import template from './my-app.html';
